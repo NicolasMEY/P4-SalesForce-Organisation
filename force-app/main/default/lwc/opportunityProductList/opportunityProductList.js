@@ -13,20 +13,27 @@ export default class OpportunityProductList extends LightningElement {
     { label: "Quantité en Stock", fieldName: "stockQuantity" },
     {
       label: "Supprimer",
-      type: "button",
+      type: "button-icon",
+      fieldName: "delete",
       typeAttributes: {
-        label: "Supprimer",
+        iconName: "utility:delete",
         name: "delete",
-        variant: "destructive"
+        variant: "neutral",
+        alternativeText: "Supprimer"
+      },
+      cellAttributes: {
+        alignment: "center" // Centre le bouton dans la cellule
       }
     },
     {
       label: "Voir produit",
       type: "button",
+      fieldName: "view",
       typeAttributes: {
-        label: "Voir produit",
+        label: "View product",
+        iconName: "utility:preview",
         name: "view",
-        variant: "neutral"
+        variant: "brand"
       }
     }
   ];
