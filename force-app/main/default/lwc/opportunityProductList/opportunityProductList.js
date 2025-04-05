@@ -1,30 +1,65 @@
+// -----------------------------
+// IMPORTATIONS DES MODULES LWC ET APEX
+// -----------------------------
 import { LightningElement, api, wire } from "lwc";
 import { refreshApex } from "@salesforce/apex";
 import getOpportunityProducts from "@salesforce/apex/OpportunityProductController.getOpportunityProducts";
 import deleteOpportunityProduct from "@salesforce/apex/OpportunityProductDeleteController.deleteOpportunityProduct";
 import getUserProfile from "@salesforce/apex/UserProfileController.getUserProfile";
+import USER_ID from "@salesforce/user/Id";
+// -----------------------------
+// IMPORTATIONS DES LABELS PERSONNALISÉS
+// -----------------------------
+import LABEL_Quantity_Problem_Message from "@salesforce/label/c.Quantity_Problem_Message";
+import LABEL_Opportunity_Products from "@salesforce/label/c.Opportunity_Products";
+import LABEL_No_Product_Lines_Message from "@salesforce/label/c.No_Product_Lines_Message";
+import LABEL_Product_Name from "@salesforce/label/c.Product_Name";
+import LABEL_Quantity from "@salesforce/label/c.Quantity";
+import LABEL_Unit_Price from "@salesforce/label/c.Unit_Price";
+import LABEL_Total_Price from "@salesforce/label/c.Total_Price";
+import LABEL_Quantity_in_stock from "@salesforce/label/c.Quantity_in_stock";
+import LABEL_See_product from "@salesforce/label/c.See_product";
+import LABEL_Delete from "@salesforce/label/c.Delete";
 
 export default class OpportunityProductList extends LightningElement {
+  // -----------------------------
+  // PROPRIÉTÉS PUBLIQUES ET INTERNES
+  // -----------------------------
   @api recordId; // ID de l'opportunité
+  // @api userId; // ID de l'utilisateur, passer via @api
   error;
   products = []; // Liste des produits
   userRole; // Variable pour stocker le rôle de l'utilisateur
+  userId = USER_ID; // Utiliser l'ID de l'utilisateur connecté
+  isDataLoaded = false; // Flag pour éviter les appels multiples
+  showWarningMessage = false; // Initialisation de la variable pour l'avertissement
 
+  // -----------------------------
+  // OBJET DE LABELS POUR UTILISATION DANS LE TEMPLATE
+  // -----------------------------
+  labels = {
+    quantityProblemMessage: LABEL_Quantity_Problem_Message,
+    opportunityProducts: LABEL_Opportunity_Products,
+    noProductLinesMessage: LABEL_No_Product_Lines_Message
+  };
+  // -----------------------------
+  // DÉFINITION DES COLONNES POUR LA DATATABLE
+  // -----------------------------
   columns = [
-    { label: "Nom du produit", fieldName: "productName" },
+    { label: LABEL_Product_Name, fieldName: "productName" },
     {
-      label: "Quantité",
+      label: LABEL_Quantity,
       fieldName: "quantity",
       cellAttributes: { class: { fieldName: "stockWarning" } }
     },
-    { label: "Prix unitaire", fieldName: "unitPrice" },
-    { label: "Prix Total", fieldName: "totalPrice" },
+    { label: LABEL_Unit_Price, fieldName: "unitPrice" },
+    { label: LABEL_Total_Price, fieldName: "totalPrice" },
     {
-      label: "Quantité en Stock",
+      label: LABEL_Quantity_in_stock,
       fieldName: "quantityInStock"
     },
     {
-      label: "Supprimer",
+      label: LABEL_Delete,
       type: "button-icon",
       fieldName: "delete",
       typeAttributes: {
@@ -36,45 +71,38 @@ export default class OpportunityProductList extends LightningElement {
       }
     },
     {
-      label: "Voir produit",
+      label: LABEL_See_product,
       type: "button",
       fieldName: "view",
       typeAttributes: {
-        label: "View product",
+        label: LABEL_See_product,
         iconName: "utility:preview",
         name: "view",
         variant: "brand"
-      },
-      // On conditionne l'affichage du bouton en fonction du rôle de l'utilisateur
-      hidden: false // Initialement visible, on part du principe que c'est l'admin qui esrt connecté
+      }
     }
   ];
 
-  // Récupérer les produits de l'opportunité, stockés dans "products"
+  //  WIRE : RÉCUPÉRATION DES PRODUITS DE L'OPPORTUNITÉ
   @wire(getOpportunityProducts, { opportunityId: "$recordId" })
   wiredProducts({ data, error }) {
     if (data) {
       this.products = data.map((product) => {
-        console.log("Row data:", product);
         return {
           ...product,
           productId: product.productId,
           stockWarning:
             product.quantityInStock - product.quantity < 0
-              ? "slds-text-color_error"
-              : "slds-text-color_success"
+              ? "slds-text-color_error slds-theme_shade slds-theme_alert-texture" // Rouge + Fond gris
+              : "slds-text-color_success" // Vert (fond normal)
         };
       });
-      // Vérifier si au moins un produit a une quantité insuffisante
+      //  Vérifier si au moins un produit a une quantité insuffisante
       const hasQuantityIssues = this.products.some(
         (product) => product.quantityInStock - product.quantity < 0
       );
-      // Si des produits ont un problème de quantité, afficher un message d'avertissement
-      if (hasQuantityIssues) {
-        this.showWarningMessage = true;
-      } else {
-        this.showWarningMessage = false;
-      }
+      //Si des produits ont un problème de quantité, afficher un message d'avertissement
+      this.showWarningMessage = hasQuantityIssues;
 
       this.error = undefined;
     } else if (error) {
@@ -83,39 +111,55 @@ export default class OpportunityProductList extends LightningElement {
     }
   }
 
-  // return true si des produits son récupérés
+  //  ACCESSEUR : VÉRIFIE LA PRÉSENCE DE PRODUITS
   get hasProductsOnOpportunity() {
     return this.products.length > 0;
   }
 
-  // Appel pour récupérer le rôle de l'utilisateur connecté
+  // WIRE : RÉCUPÉRATION DU RÔLE UTILISATEUR CONNECTÉ
   @wire(getUserProfile, { userId: "$userId" })
   wiredUserProfile({ data, error }) {
-    if (data) {
-      this.userRole = data; // Le rôle de l'utilisateur est récupéré
-    } else if (error) {
-      console.error("Erreur lors de la récupération du rôle:", error);
+    if (this.isDataLoaded) return; // Si les données sont déjà chargées, ne pas effectuer l'appel
+    if (this.userId) {
+      if (data) {
+        if (data.role) {
+          this.userRole = data.role;
+          this.isDataLoaded = true;
+        }
+      } else if (error) {
+        console.error("Erreur lors de la récupération du rôle:", error);
+        alert(error.body.message);
+      }
+    } else {
+      console.error(
+        "userId est indéfini. Impossible de récupérer les données de l'utilisateur."
+      );
     }
   }
 
+  // ACCESSEUR : COLONNES ADAPTÉES AU PROFIL UTILISATEUR
+  get columnsToShow() {
+    if (
+      this.userRole === "Custom: Sales Profile" ||
+      this.userRole === "Standard User"
+    ) {
+      // Supprimer la colonne "Voir Produit" si le rôle est "Sales Profile" ou "Standard User"
+      return this.columns.filter((col) => col.fieldName !== "view");
+    }
+    return this.columns; // Si l'utilisateur est Admin, garder toutes les colonnes
+  }
+
+  // GESTION DES ACTIONS SUR LES LIGNES (View / Delete)
   handleRowAction(event) {
-    // Récupérer le nom de l'action (view, delete, etc.)
     const actionName = event.detail.action.name;
-    // Récupérer les données de la ligne sur laquelle l'action a été effectuée
     const row = event.detail.row;
-    // Afficher les données de la ligne pour vérifier la structure
     console.log("Données de la ligne complète:", row);
-    // Essayer de récupérer l'ID du produit (productId ou id selon la strcuture du champs)
     const productId = row.productId || row.id;
 
-    // Vérifier si l'ID est bien défini
     if (productId) {
-      // Si l'action est "view", rediriger vers la page produit
       if (actionName === "view") {
         this.handleViewProduct(productId);
-      }
-      // Si l'action est "delete", appeler la méthode pour supprimer
-      else if (actionName === "delete") {
+      } else if (actionName === "delete") {
         console.log("Tentative de suppression du produit avec ID :", productId);
         this.handleDeleteProduct(productId);
       }
@@ -124,21 +168,21 @@ export default class OpportunityProductList extends LightningElement {
     }
   }
 
-  // Supprimer un produit
+  // SUPPRESSION D’UN PRODUIT DEPUIS LE SERVEUR
   handleDeleteProduct(productId) {
     if (!productId) {
       return;
     }
-    // Supprimer le produit localement d'abord
+    // Sauvegarde des produits avant suppression
     const originalProducts = [...this.products];
-    this.products = this.products.filter(
-      (product) => product.productId !== productId
-    );
-    // Effectuer la suppression côté serveur en arrière-plan
+    // Suppression serveur
     deleteOpportunityProduct({ productId })
       .then(() => {
         console.log("Produit supprimé côté serveur");
-        // Rafraîchir les données de produits liés dans "Related"
+        // Met à jour la liste des produits APRÈS confirmation
+        this.products = this.products.filter(
+          (product) => product.productId !== productId
+        );
         return refreshApex(this.wiredRelatedProducts);
       })
       .then(() => {
@@ -146,39 +190,17 @@ export default class OpportunityProductList extends LightningElement {
       })
       .catch((error) => {
         console.error("Erreur lors de la suppression du produit :", error);
-        // Si l'appel échoue, restaurer l'élément dans la liste
+        // Restaure la liste d'origine si échec
         this.products = originalProducts;
       });
   }
 
-  // Migration vers une page produit
+  // REDIRECTION VERS LA FICHE PRODUIT
   handleViewProduct(productId) {
     if (productId) {
       window.location.href = `/lightning/r/Product2/${productId}/view`;
     } else {
       console.log("Produit non valide, ID manquant");
     }
-  }
-
-  // Méthode pour vérifier si le bouton "Voir produit" doit être caché
-  // Si l'utilisateur est un Commercial ou un Utilisateur standard, on cache le bouton
-  get hideViewButton() {
-    return (
-      this.userRole === "Commercial" || this.userRole === "Utilisateur standard"
-    );
-  }
-
-  // Message si la liste est vide
-  get noProductMessage() {
-    return this.userLanguage === "fr"
-      ? "Aucun produit n’est présent pour le moment."
-      : "No product available on the opportunity.";
-  }
-
-  // Affichage d'une case en rouge si la quantité en stock - la quantité actuelle est inférieure à 0
-  get stockClass() {
-    return this.products.some((product) => product.stockQuantity < 0)
-      ? "slds-text-color_error"
-      : "";
   }
 }
