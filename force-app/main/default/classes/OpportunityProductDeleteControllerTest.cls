@@ -1,5 +1,5 @@
 @isTest
-private class OpportunityProductControllerTest {
+private class OpportunityProductDeleteControllerTest {
   @TestSetup
   static void setup() {
     // Créer un produit
@@ -42,20 +42,32 @@ private class OpportunityProductControllerTest {
   }
 
   @isTest
-  public static void getOpportunityProductsTest() {
-    Opportunity OppTest = [
-      SELECT ID
-      FROM Opportunity
-      WHERE Name = 'Test Opportunity'
+  public static void testDeleteOpportunityProduct() {
+    // Récupérer l'OpportunityLineItem inséré dans le setup
+    OpportunityLineItem oliToDelete = [
+      SELECT Id, Product2Id
+      FROM OpportunityLineItem
+      WHERE Product2Id IN (SELECT Id FROM Product2 WHERE Name = 'Test Product')
       LIMIT 1
     ];
 
     Test.startTest();
-    List<Map<String, Object>> result = OpportunityProductController.getOpportunityProducts(
-      OppTest.Id
+    // Appeler la méthode de suppression avec le Product2Id
+    OpportunityProductDeleteController.deleteOpportunityProduct(
+      oliToDelete.Product2Id
     );
     Test.stopTest();
 
-    Assert.areEqual(true, result != null);
+    // Vérifier que la ligne de produit a bien été supprimée
+    Integer count = [
+      SELECT COUNT()
+      FROM OpportunityLineItem
+      WHERE Id = :oliToDelete.Id
+    ];
+    System.assertEquals(
+      0,
+      count,
+      'La ligne de produit n\'a pas été supprimée.'
+    );
   }
 }

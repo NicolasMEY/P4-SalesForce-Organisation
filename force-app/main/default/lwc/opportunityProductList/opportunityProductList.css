@@ -1,0 +1,4 @@
+.slds-notify_alert {
+  display: block !important; /* Remplace inline-flex par block pour un alignement classique */
+  padding-left: 20px;
+}

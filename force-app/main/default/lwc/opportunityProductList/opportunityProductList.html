@@ -1,0 +1,34 @@
+<template>
+  <lightning-card
+    title={labels.opportunityProducts}
+    icon-name="standard:opportunity"
+    class="slds-icon-standard-opportunity"
+  >
+    <div class="slds-p-around_small">
+      <template if:true={showWarningMessage}>
+        <div
+          class="slds-notify slds-notify_alert slds-alert_warning slds-m-bottom_medium"
+        >
+          <p class="slds-text-color_default slds-text-align_left">
+            {labels.quantityProblemMessage}
+          </p>
+        </div>
+      </template>
+
+      <template if:true={products.length}>
+        <lightning-datatable
+          key-field="id"
+          data={products}
+          columns={columnsToShow}
+          onrowaction={handleRowAction}
+        >
+        </lightning-datatable>
+      </template>
+
+      <!-- Aucun produit affiché sur la page -->
+      <template if:false={products.length}>
+        <p>{labels.noProductLinesMessage}</p>
+      </template>
+    </div>
+  </lightning-card>
+</template>
