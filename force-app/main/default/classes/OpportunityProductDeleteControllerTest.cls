@@ -9,7 +9,7 @@ private class OpportunityProductDeleteControllerTest {
     );
     insert product;
 
-    // Méthode spéciale qui retourne l'ID du Pricebook standard
+    // méthode spéciale fournie native qui retourne l'ID du Pricebook standard de l'organisation
     Id standardPricebookId = Test.getStandardPricebookId();
 
     // Créer une PricebookEntry avec un prix standard
@@ -30,7 +30,7 @@ private class OpportunityProductDeleteControllerTest {
     );
     insert opp;
 
-    // Créer une OpportunityLineItem avec le produit et le prix standard
+    // Créer une OpportunityLineItem avec un produit et un prix standard
     OpportunityLineItem oli = new OpportunityLineItem(
       OpportunityId = opp.Id,
       PricebookEntryId = pbeStandard.Id,
@@ -43,47 +43,30 @@ private class OpportunityProductDeleteControllerTest {
 
   @isTest
   public static void testDeleteOpportunityProduct() {
-    // Récupérer l'Opportunity insérée dans le setup
-    Opportunity opp = [
-      SELECT Id
-      FROM Opportunity
-      WHERE Name = 'Test Opportunity'
-      LIMIT 1
-    ];
-
     // Récupérer l'OpportunityLineItem inséré dans le setup
-    List<OpportunityLineItem> oliList = [
-      SELECT Id
+    OpportunityLineItem oliToDelete = [
+      SELECT Id, Product2Id
       FROM OpportunityLineItem
-      WHERE OpportunityId = :opp.Id
+      WHERE Product2Id IN (SELECT Id FROM Product2 WHERE Name = 'Test Product')
       LIMIT 1
     ];
-
-    // Vérifier si l'OpportunityLineItem existe
-    System.assertEquals(
-      oliList.size(),
-      1,
-      'L\'OpportunityLineItem n\'a pas été inséré correctement.'
-    );
-
-    OpportunityLineItem oliToDelete = oliList[0]; // Récupérer l'OpportunityLineItem à supprimer
 
     Test.startTest();
-    // Appeler la méthode de suppression
-    OpportunityProductDeleteController.deleteOpportunityProduct(oliToDelete.Id);
+    // Appeler la méthode de suppression avec le Product2Id
+    OpportunityProductDeleteController.deleteOpportunityProduct(
+      oliToDelete.Product2Id
+    );
     Test.stopTest();
 
-    // Vérifier que la ligne de produit a été supprimée
-    List<OpportunityLineItem> deletedOli = [
-      SELECT Id
+    // Vérifier que la ligne de produit a bien été supprimée
+    Integer count = [
+      SELECT COUNT()
       FROM OpportunityLineItem
       WHERE Id = :oliToDelete.Id
     ];
-
-    // Vérifier que l'OpportunityLineItem n'existe plus
     System.assertEquals(
-      deletedOli.size(),
       0,
+      count,
       'La ligne de produit n\'a pas été supprimée.'
     );
   }
